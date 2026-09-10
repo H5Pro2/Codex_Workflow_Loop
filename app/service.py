@@ -12,6 +12,7 @@ from .monitor import Tail
 from .titles import read_titles, read_rollout
 from .bridge import Bridge
 from .workflow import Workflow
+from .debug import DebugLog, fingerprint
 
 ID = re.compile(r"(?<![a-f0-9])[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}(?![a-f0-9])", re.I)
 DEFAULT_THEME = dict(bg="#181818", panel="#212121", text="#eeeeee", accent="#eeeeee", green="#91d5ad",
@@ -38,6 +39,7 @@ class Service:
         self.storage = Path(storage)
         self.sessions = sessions or Path(os.environ.get("CODEX_HOME", str(Path.home() / ".codex"))) / "sessions"
         self.lock = threading.RLock()
+        self.debug = DebugLog(self.storage.parent / 'debug.json')
         self.workers = {}
         self.events = []
         self.activity_collapsed = False
@@ -69,6 +71,8 @@ class Service:
             for row in saved:
                 if row.get("active"):
                     self.command("start", row["id"])
+
+        self.debug.record('service_started',message='Lokaler Dienst gestartet; kein automatischer Loop-Start.')
 
     @staticmethod
     def new_row(identity, label):
@@ -126,7 +130,7 @@ class Service:
         token = str(uuid4())
         with self.lock:
             self.transfers = {k:v for k,v in self.transfers.items() if time.monotonic()-v["created"] < 3600}
-            self.transfers[token] = dict(source=identity, text=tail.completed_text, created=time.monotonic())
+            self.transfers[token] = dict(source=identity, source_turn=tail.last_turn, text=tail.completed_text, created=time.monotonic())
         return dict(source=identity, text=tail.completed_text, token=token)
 
     def bridge_status(self, target, state, message):
@@ -158,7 +162,7 @@ class Service:
             self.check_target(transfer["source"], target)
             with self.lock:
                 self.deliveries[key] = {"pending": True}
-            confirmation = self.bridge.send(target, self.forward_text(transfer["source"], transfer["text"]), source=transfer["source"])
+            confirmation = self.dispatch(target, transfer["source"], transfer["text"], mode="manual", source_turn=transfer.get("source_turn"))
             self.forwarded()
             outcome = dict(sent=True, target=target, confirmation=confirmation)
             with self.lock:
@@ -167,6 +171,23 @@ class Service:
         finally:
             with self.lock:
                 self.sending.discard(target)
+
+    def dispatch(self, target, source, text, *, mode, run=None, source_turn=None, previous_turn=None):
+        delivery=str(uuid4())
+        names={r['id']:r.get('title') or r.get('label') or r['id'] for r in self.rows}
+        prompt=self.forward_text(source,text)
+        fields=dict(delivery=delivery,mode=mode,run=run,source=source,target=target,
+                    source_name=names.get(source,source),target_name=names.get(target,target),
+                    source_turn=source_turn,previous_target_turn=previous_turn,
+                    answer=fingerprint(text),sent_message=fingerprint(prompt))
+        self.debug.record('dispatch_requested',**fields)
+        try:
+            result=self.bridge.send(target,prompt,source=source)
+        except Exception as error:
+            self.debug.record('dispatch_unconfirmed',delivery=delivery,run=run,source=source,target=target,error_type=type(error).__name__,message='Versand nicht bestätigt; Zielchat vor erneutem Senden prüfen.')
+            raise
+        self.debug.record('dispatch_confirmed',delivery=delivery,run=run,source=source,target=target,confirmed_target=result.get('threadId'))
+        return result
 
     def forward_text(self, source, text):
         titles = read_titles(self.sessions.parent, [source])
@@ -218,6 +239,9 @@ class Service:
                 except OSError:
                     self.rows = previous
                     raise
+                return
+            if action == "clear_debug":
+                self.debug.clear()
                 return
             if action == "clear_events":
                 previous = self.events
@@ -336,11 +360,13 @@ class Service:
             else:
                 raise ValueError("Unbekannte Aktion.")
 
-    def publish(self, identity, stop, state, message, complete=False):
+    def publish(self, identity, stop, state, message, complete=False, turn=None):
         with self.lock:
             if self.workers.get(identity) is not stop or stop.is_set():
                 return
             row = next(r for r in self.rows if r["id"] == identity)
+            if state != row.get('state') or complete:
+                self.debug.record('chat_status',target=identity,target_name=row.get('title') or row.get('label') or identity,status=state,message=message,turn=turn)
             row.update(state=state, message=message)
             if complete:
                 row["count"] += 1
@@ -393,7 +419,7 @@ class Service:
                     recovery = False
                 for kind, stamp in notices:
                     if kind == "task_complete":
-                        self.publish(identity, stop, "complete", "Nachricht wurde generiert — Chat ist fertig.", True)
+                        self.publish(identity, stop, "complete", "Nachricht wurde generiert — Chat ist fertig.", True, turn=tail.last_turn)
                     elif kind == "task_started":
                         self.publish(identity, stop, "working", "Chat schreibt …")
                     else:

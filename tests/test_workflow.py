@@ -15,6 +15,8 @@ def graph(limit=5):
 
 class FakeService:
     def __init__(self):
+        from unittest.mock import Mock
+        self.debug=Mock()
         self.lock=threading.RLock()
         self.rows=[{'id':k} for k in 'ABC']
         self.monitored=[]
@@ -24,6 +26,9 @@ class FakeService:
         self.bridge=self
         self.workflow=Workflow(self)
         self.workflow.graph=graph()
+
+    def dispatch(self, identity, source, text, **kwargs):
+        return self.send(identity,self.forward_text(source,text),source=source)
 
     def preflight(self, identity):
         pass

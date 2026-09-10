@@ -113,6 +113,14 @@ Ein Rädchen erscheint nur bei aktueller Chat-Aktivität. Fertigmeldungen basier
 
 Der Dateipfad wird aus Codex gelesen und alle fünf Sekunden auf Wechsel geprüft; dadurch werden fortgesetzte Sitzungen mit erweitertem Dateinamen berücksichtigt. Alte Abschlüsse werden beim Start nicht erneut gezählt. Abbrüche sind keine erfolgreichen Antworten. Die Dateien und Datenbankeinträge werden nur für eingetragene Chat-IDs gelesen. Kein Maus- oder Tastaturzugriff.
 
+## Debug-Protokoll
+
+Der aufklappbare Bereich **Debug · Übergabeprotokoll** zeigt die letzten 1.000 Ereignisse dauerhaft in `data/debug.json`. Erfasst werden Dienststart, lokale Statuswechsel, Verbindungsprüfung, Loop-Start, Counter, Stopps und erkannte fremde Aufträge. Für manuelle und automatische Weitergaben sind Versandversuch und Bestätigung getrennte Einträge mit gemeinsamer Übergabe-ID, Quelle/Ziel und Chatnamen. Loop-Einträge enthalten zusätzlich Lauf-ID und beobachtete Antwort-Turn-IDs; Kopien erfassen die Quell-Turn-ID.
+
+Originalantwort und tatsächlich gesendeter Text inklusive Kopfzeile erhalten jeweils UTF-8-Bytezahl und SHA-256. Vollständige Nachrichtentexte, MCP-Pipe und Verbindungsdatei werden nicht exportiert. **Exportieren** lädt das Protokoll als JSON; **Leeren** löscht es unabhängig von der Aktivitätenliste. Speicherfehler werden angezeigt; die Diagnose bleibt dann im Arbeitsspeicher und löst keine erneute Zustellung aus.
+
+Das Protokoll beginnt mit Aktivierung dieser Funktion und rekonstruiert keine alten Übergaben. Es belegt Sendungen dieses Programms, keine vollständige Historie aller Codex-Sendewerkzeuge. Ein unerwarteter Turn belegt eine fremde Aktivität, nicht deren Absender. Eine Versandbestätigung ist noch kein erfolgreicher Antwortabschluss. Manuelle Weitergaben warten nicht auf einen Abschluss; spätere lokale Statusmeldungen sind separat erfasst.
+
 ## Speicherung
 
 **data/chats.json** speichert Chat-IDs, Namen, Farben, Signaltöne, Kartenreihenfolge, den Einklappzustand, aktive Überwachungen und die letzten 200 Abschlussmeldungen. Nach einem Neustart werden aktive Überwachungen wieder gestartet. Kopierte Antworttexte werden nicht dauerhaft gespeichert. Sie laufen nach einer Stunde ab; Neuladen der Browseransicht erfordert erneutes Kopieren.

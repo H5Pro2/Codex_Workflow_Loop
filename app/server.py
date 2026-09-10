@@ -27,11 +27,13 @@ def make_server(service, web, port=43821):
         def do_GET(self):
             if not self.allowed():
                 return self.reply(403, {"error": "Ungültiger Host"})
+            if self.path == "/api/debug":
+                return self.reply(200, service.debug.snapshot())
             if self.path == "/api/state":
                 return self.reply(200, service.snapshot())
             if self.path == "/api/health":
                 return self.reply(200, {"app": "workflow-loop", "version": 2})
-            files = {"/": ("index.html", "text/html"), "/style.css": ("style.css", "text/css"), "/app.js": ("app.js", "text/javascript"), '/workflow.js':('workflow.js','text/javascript'), '/workflow.css':('workflow.css','text/css')}
+            files = {"/": ("index.html", "text/html"), "/style.css": ("style.css", "text/css"), "/app.js": ("app.js", "text/javascript"), '/debug.js':('debug.js','text/javascript'), '/workflow.js':('workflow.js','text/javascript'), '/workflow.css':('workflow.css','text/css')}
             if self.path not in files:
                 return self.reply(404, {"error": "Nicht gefunden"})
             name, mime = files[self.path]

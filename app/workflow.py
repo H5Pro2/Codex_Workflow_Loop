@@ -3,6 +3,7 @@ import copy
 import math
 import threading
 import time
+from uuid import uuid4
 
 
 def validate(graph, known, runnable=False):
@@ -101,6 +102,8 @@ class Workflow:
         with self.lock:
             self.run.update(fields)
         self.persist()
+        if any(k in fields for k in ('status','counts')):
+            self.service.debug.record('workflow_state',run=self.run.get('id'),status=self.run.get('status'),message=self.run.get('message'),counts=self.run.get('counts'),node=self.run.get('node'))
 
     def save_graph(self, graph):
         clean, _, _, _ = validate(graph, {r['id'] for r in self.service.rows})
@@ -131,14 +134,20 @@ class Workflow:
                 raise ValueError('Der Ablauf läuft bereits.')
             _, initial_nodes, _, initial_path = validate(self.graph, {r['id'] for r in self.service.rows}, True)
             source = next(initial_nodes[k]['chat'] for k in initial_path if initial_nodes[k]['kind']=='chat')
-        self.service.bridge.preflight(source)
+        self.service.debug.record('preflight_requested',source=source)
+        try:
+            self.service.bridge.preflight(source)
+        except Exception as error:
+            self.service.debug.record('preflight_failed',source=source,error_type=type(error).__name__,message='App-Verbindung nicht bestätigt; Zähler bleibt erhalten.')
+            raise
+        self.service.debug.record('preflight_confirmed',source=source)
         with self.lock:
             if self.busy() or (self.thread and self.thread.is_alive()):
                 raise ValueError('Der Ablauf läuft bereits oder wird noch gestoppt.')
             _, nodes, edges, path = validate(self.graph, {r['id'] for r in self.service.rows}, True)
             participants = [nodes[k]['chat'] for k in path if nodes[k]['kind']=='chat']
             self.stop_event = threading.Event()
-            self.run = dict(status='running', message='Ablauf wird vorbereitet …', node=path[0], counts={}, participants=participants)
+            self.run = dict(id=str(uuid4()),status='running', message='Ablauf wird vorbereitet …', node=path[0], counts={}, participants=participants)
             self.thread = threading.Thread(target=self.execute, args=(nodes,edges,path[0],self.stop_event), daemon=True)
         try:
             self.persist()
@@ -146,9 +155,12 @@ class Workflow:
             self.run.update(status='error', message='Laufzustand konnte nicht gespeichert werden. Kein Chat gestartet.')
             self.thread = None
             raise
+        self.service.debug.record('workflow_started',run=self.run['id'],participants=participants)
         self.thread.start()
 
     def stop(self):
+        if self.busy():
+            self.service.debug.record('stop_requested',run=self.run.get('id'))
         with self.lock:
             self.stop_event.set()
             if self.busy():
@@ -181,6 +193,7 @@ class Workflow:
             entry = self.poll(identity)
             turn = entry.get('latestTurn') or {}
             if turn.get('id') != previous or turn.get('status') == 'inProgress' or entry.get('thread',{}).get('status',{}).get('type') == 'active':
+                self.service.debug.record('unexpected_turn',run=self.run.get('id'),target=identity,expected_turn=previous,observed_turn=turn.get('id'))
                 raise ValueError('Zusätzlicher Auftrag außerhalb des Loops erkannt. Keine weitere Übergabe; Chatverläufe prüfen.')
 
     def answer(self, identity, previous, stop):
@@ -194,9 +207,12 @@ class Workflow:
             if current and current != previous:
                 if expected and current != expected:
                     raise ValueError('Ein weiterer Auftrag hat den Chat verändert. Automatik angehalten.')
+                if expected is None:
+                    self.service.debug.record('turn_detected',run=self.run.get('id'),target=identity,turn=current)
                 expected = current
                 if turn.get('status') == 'completed':
                     # Only forward the exact newly started turn, never an old answer.
+                    self.service.debug.record('turn_completed',run=self.run.get('id'),target=identity,turn=current)
                     self.observed_turns[identity] = current
                     return self.service.workflow_answer(identity, current)
                 if turn.get('status') not in ('inProgress', None):
@@ -249,7 +265,7 @@ class Workflow:
                         self.update(message='Antwort wird an den verbundenen Chat übergeben …')
                         if stop.is_set():
                             break
-                        self.service.bridge.send(identity, self.service.forward_text(source, text), source=source)
+                        self.service.dispatch(identity,source,text,mode='loop',run=self.run.get('id'),source_turn=self.observed_turns.get(source),previous_turn=(before.get('latestTurn') or {}).get('id'))
                         self.service.forwarded()
                         self.update(message='Chat arbeitet · warte auf vollständige Antwort …')
                         text = self.answer(identity, (before.get('latestTurn') or {}).get('id'), stop)
