@@ -14,7 +14,7 @@ Codex Workflow Loop im Seitenpanel der Codex-Desktop-App: Überwachung, Durchlau
 
 Visueller Ablauf mit Start, Chats und Loop-Counter. Startverbindungen sind grün, normale Verbindungen blau und Counter-Ausgänge orange.
 
-![Codex Workflow Loop – Verbindungseditor](Bilder/chat_verbindung.png?v=bd25956)
+![Codex Workflow Loop – Verbindungseditor](Bilder/Chat_verbindung.png)
 
 ## Voraussetzungen und Installation
 
