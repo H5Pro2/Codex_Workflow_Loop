@@ -129,6 +129,14 @@ function render() {
   $('#activity-arrow').textContent=state.activity_collapsed?'▸':'▾';
   $('#events-clear').disabled=!state.events.length;
   $('#total').textContent=state.chats.length;
+  const loopNodes=state.workflow?.graph?.nodes||[];
+  const loopEdges=state.workflow?.graph?.edges||[];
+  const reachable=new Set();let step=loopNodes.find(n=>n.kind==='start')?.id;
+  while(step&&!reachable.has(step)){reachable.add(step);step=loopEdges.find(edge=>edge.source===step)?.target;}
+  const counters=loopNodes.filter(n=>n.kind==='counter'&&reachable.has(n.id));
+  $('#loop-progress').textContent=counters.length?counters.map((counter,index)=>`${counters.length>1?'Counter '+(index+1):'Durchläufe'} ${state.workflow?.run?.counts?.[counter.id]||0} / ${counter.limit}`).join(' · '):'Durchläufe –';
+  $('#loop-progress').title=counters.length?'Abgeschlossene Durchläufe / eingestelltes Limit':'Noch kein Counter mit dem Start verbunden';
+
   const ids=new Set(state.chats.map(c=>c.id));
   for(const [id, card] of cards) if(!ids.has(id)){card.remove();cards.delete(id);}
   $('#chats .empty')?.remove();

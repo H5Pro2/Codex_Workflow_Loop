@@ -31,3 +31,5 @@ input:not([type=checkbox]){background:var(--bg);border-color:var(--border)}butto
 .chat-drop-marker{position:fixed;height:3px;background:var(--accent);border-radius:3px;z-index:1000;pointer-events:none;box-shadow:0 0 0 1px var(--bg)}.chat-drop-marker::before{content:"";position:absolute;left:-3px;top:-3px;width:9px;height:9px;border-radius:50%;background:var(--accent)}.chat-drag-preview{position:fixed;z-index:1001;pointer-events:none;margin:0;transform:scale(1.025);box-shadow:0 20px 50px #0008,0 0 0 1px var(--accent);opacity:.97}.chat.dragging{opacity:.5;outline:1px dashed var(--border)}.reordering-chats,.reordering-chats *{cursor:grabbing!important;user-select:none!important}
 
 @media(prefers-reduced-motion:reduce){.chat-drag-preview{transform:none}}
+
+.monitor-heading{display:flex;align-items:center;gap:16px;flex-wrap:wrap}#loop-progress{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
