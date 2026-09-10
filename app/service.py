@@ -11,7 +11,7 @@ from uuid import uuid4
 from .monitor import Tail
 from .titles import read_titles, read_rollout
 from .bridge import Bridge
-from .workflow import Workflow
+from .workflow import Workflow, EmptyAnswer
 from .debug import DebugLog, fingerprint
 
 ID = re.compile(r"(?<![a-f0-9])[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}(?![a-f0-9])", re.I)
@@ -103,15 +103,22 @@ class Service:
             return copy.deepcopy(dict(last_forward=self.last_forward, chats=self.rows, events=self.events, activity_collapsed=self.activity_collapsed, sound=self.sound, sound_forward=self.sound_forward, theme=self.theme, workflow=self.workflow.snapshot()))
 
     def workflow_answer(self, identity, turn):
-        for attempt in range(10):
+        empty = False
+        for attempt in range(30):
+            if self.workflow.stop_event.is_set():
+                return None
             path = read_rollout(self.sessions.parent, identity)
             if path:
                 tail = Tail()
                 tail.poll(path)
-                if tail.last_turn == turn and tail.last_kind == 'task_complete' and tail.completed_text.strip():
+                empty = tail.last_turn == turn and tail.last_kind == 'task_complete'
+                if empty and tail.completed_text.strip():
                     return tail.completed_text
             if self.workflow.stop_event.wait(.5):
                 return None
+        self.debug.record('answer_unavailable', target=identity, turn=turn, reason='empty_completed_answer' if empty else 'not_readable')
+        if empty:
+            raise EmptyAnswer('Ablauf gestoppt: Der Chat hat ohne Antworttext abgeschlossen. Nichts weitergeleitet. Bitte den Chat prüfen; der Loop startet nicht automatisch erneut.')
         raise ValueError('Die Antwort des neuen Durchlaufs ist noch nicht eindeutig lesbar. Keine alte Antwort weitergeleitet.')
 
     def copy_answer(self, value):

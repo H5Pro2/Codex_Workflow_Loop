@@ -71,6 +71,10 @@ def validate(graph, known, runnable=False):
     return clean, nodes, edges, path
 
 
+class EmptyAnswer(ValueError):
+    """The exact completed turn contains no text to forward."""
+
+
 class Workflow:
     def __init__(self, service, saved=None):
         self.service = service
@@ -288,5 +292,7 @@ class Workflow:
                     return
                 current = edges[current]
             self.update(status='stopped', message='Gestoppt · keine weiteren Übergaben.')
+        except EmptyAnswer as error:
+            self.update(status='stopped', message=str(error))
         except Exception as error:
             self.update(status='error', message=f'Ablauf angehalten: {error}')

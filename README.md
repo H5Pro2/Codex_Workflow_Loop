@@ -144,3 +144,5 @@ Der Dienst ist nur an 127.0.0.1 gebunden. Änderungen sind durch Host-, Origin- 
 `python -m compileall -q app run.py`
 
 Der direkte App-Verbindungsaufbau und Live-Statuszugriff auf beide Test-Chats wurden lesend geprüft. Die automatisierten Tests prüfen unter anderem, dass die echte App-Sendefunktion mit unverändertem Text verwendet wird, aktive Ziele nicht beschrieben werden und Doppelklicks keine doppelte Übergabe auslösen. Der sichtbare Ende-zu-Ende-Versand erfolgt anschließend über einen Benutzerklick in den Test-Chats.
+
+Leere Abschlussantworten halten den Loop mit einer eindeutigen Rückmeldung an; es wird kein Ersatztext versendet. Bei verzögert lesbaren Antworten wird bis zu 15 Sekunden erneut geprüft. Der Debug-Eintrag answer_unavailable unterscheidet leere Antworten von nicht lesbaren Durchläufen.
