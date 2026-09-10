@@ -162,3 +162,16 @@ class WorkflowTests(unittest.TestCase):
         with self.assertRaises(OSError):service.workflow.save_graph(graph(5))
         self.assertEqual(service.workflow.run['counts'],{'counter':2})
         self.assertEqual(service.workflow.graph['nodes'][-1]['limit'],2)
+
+    def test_direct_side_message_stops_loop_before_next_dispatch(self):
+        service=FakeService()
+        original=service.send
+        def side_send(identity,text, *, source):
+            original(identity,text,source=source)
+            service.turns[source]='unexpected-direct-message'
+        service.send=side_send
+        service.workflow.start();service.workflow.thread.join(3)
+        self.assertEqual(len(service.sent),1)
+        self.assertEqual(service.workflow.run['status'],'error')
+        self.assertIn('außerhalb des Loops',service.workflow.run['message'])
+        self.assertEqual(service.workflow.run['counts'],{})

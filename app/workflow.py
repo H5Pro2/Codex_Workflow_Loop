@@ -174,10 +174,20 @@ class Workflow:
             stop.wait(1)
         return None
 
+    def check_other_chats(self, active):
+        for identity, previous in self.observed_turns.items():
+            if identity == active:
+                continue
+            entry = self.poll(identity)
+            turn = entry.get('latestTurn') or {}
+            if turn.get('id') != previous or turn.get('status') == 'inProgress' or entry.get('thread',{}).get('status',{}).get('type') == 'active':
+                raise ValueError('Zusätzlicher Auftrag außerhalb des Loops erkannt. Keine weitere Übergabe; Chatverläufe prüfen.')
+
     def answer(self, identity, previous, stop):
         expected = None
         deadline = time.monotonic()+90
         while not stop.is_set():
+            self.check_other_chats(identity)
             entry = self.poll(identity)
             turn = entry.get('latestTurn') or {}
             current = turn.get('id')
@@ -187,6 +197,7 @@ class Workflow:
                 expected = current
                 if turn.get('status') == 'completed':
                     # Only forward the exact newly started turn, never an old answer.
+                    self.observed_turns[identity] = current
                     return self.service.workflow_answer(identity, current)
                 if turn.get('status') not in ('inProgress', None):
                     raise ValueError('Chat wurde abgebrochen oder ist fehlgeschlagen.')
@@ -203,6 +214,13 @@ class Workflow:
                 if stop.is_set():
                     break
                 self.service.command('start', identity)
+            self.observed_turns = {}
+            for identity in self.run['participants']:
+                baseline = self.idle(identity, stop)
+                if baseline is None:
+                    self.update(status='stopped', message='Gestoppt · keine weiteren Übergaben.')
+                    return
+                self.observed_turns[identity] = (baseline.get('latestTurn') or {}).get('id')
             text = None
             source = None
             counts = {}
@@ -215,6 +233,7 @@ class Workflow:
                     pending_counters.append(current)
                 elif node['kind']=='chat':
                     identity = node['chat']
+                    self.check_other_chats(None)
                     before = self.idle(identity, stop)
                     if before is None or stop.is_set():
                         break

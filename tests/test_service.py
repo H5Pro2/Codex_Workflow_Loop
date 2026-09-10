@@ -58,7 +58,10 @@ class ServiceTests(unittest.TestCase):
             try:
                 service.rows=[dict(id=A,title='Alter Name')]
                 with patch('app.service.read_titles',return_value={A:'MCM-Forscher 2'}):
-                    self.assertEqual(service.forward_text(A,'Antwort\nZeile 2'), 'Nachricht von „MCM-Forscher 2“\n\nAntwort\nZeile 2')
+                    message=service.forward_text(A,'Antwort\nZeile 2')
+                    self.assertTrue(message.startswith('Nachricht von „MCM-Forscher 2“'))
+                    self.assertIn('weder send_message_to_thread',message)
+                    self.assertTrue(message.endswith('--- Weitergegebene Nachricht ---\nAntwort\nZeile 2\n--- Ende der weitergegebenen Nachricht ---'))
             finally:service.close()
 
     def test_send_uses_copied_text_and_deduplicates(self):
@@ -70,7 +73,7 @@ class ServiceTests(unittest.TestCase):
                     result = service.send_transfer("test-token", B)
                     self.assertEqual(result["confirmation"], {"threadId": B})
                     self.assertEqual(service.send_transfer("test-token", B), result)
-                    send.assert_called_once_with(B, f"Nachricht von „{A}“\n\nDie kopierte Antwort", source=A)
+                    send.assert_called_once_with(B, service.forward_text(A,"Die kopierte Antwort"), source=A)
                     check.assert_called_once_with(A, B)
             finally:
                 service.close()
