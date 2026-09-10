@@ -158,7 +158,7 @@ class Service:
             self.check_target(transfer["source"], target)
             with self.lock:
                 self.deliveries[key] = {"pending": True}
-            confirmation = self.bridge.send(target, transfer["text"])
+            confirmation = self.bridge.send(target, transfer["text"], source=transfer["source"])
             self.forwarded()
             outcome = dict(sent=True, target=target, confirmation=confirmation)
             with self.lock:

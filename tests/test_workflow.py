@@ -19,6 +19,7 @@ class FakeService:
         self.rows=[{'id':k} for k in 'ABC']
         self.monitored=[]
         self.sent=[]
+        self.sources=[]
         self.turns={k:'old' for k in 'ABC'}
         self.bridge=self
         self.workflow=Workflow(self)
@@ -40,8 +41,9 @@ class FakeService:
         identity=args['targets'][0]['threadId']
         return {'polls':[{'thread':{'id':identity,'status':{'type':'idle'}},'latestTurn':{'id':self.turns[identity],'status':'completed'}}]}
 
-    def send(self, identity, text):
+    def send(self, identity, text, *, source):
         self.sent.append((identity,text))
+        self.sources.append(source)
         self.turns[identity]='turn-'+str(len(self.sent))
 
     def workflow_answer(self, identity, turn):
@@ -56,6 +58,7 @@ class WorkflowTests(unittest.TestCase):
         self.assertFalse(service.workflow.thread.is_alive())
         self.assertEqual(service.monitored,['A','B'])
         self.assertEqual([x[0] for x in service.sent],['B','A']*5)
+        self.assertEqual(service.sources,['A','B']*5)
         self.assertEqual(service.sent[0],('B','Antwort old'))
         self.assertEqual(service.sent[1],('A','Antwort turn-1'))
         self.assertEqual(service.workflow.run['counts'],{'counter':5})
@@ -71,8 +74,8 @@ class WorkflowTests(unittest.TestCase):
     def test_stop_during_inflight_send_prevents_next_send(self):
         service=FakeService();entered=threading.Event();release=threading.Event()
         original=service.send
-        def send(identity,text):
-            original(identity,text);entered.set();release.wait(3)
+        def send(identity,text, *, source):
+            original(identity,text,source=source);entered.set();release.wait(3)
         service.send=send
         service.workflow.start();self.assertTrue(entered.wait(2))
         service.workflow.stop();release.set();service.workflow.thread.join(3)

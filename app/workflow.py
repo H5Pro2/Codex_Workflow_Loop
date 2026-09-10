@@ -204,6 +204,7 @@ class Workflow:
                     break
                 self.service.command('start', identity)
             text = None
+            source = None
             counts = {}
             pending_counters = []
             current = edges[current]
@@ -229,7 +230,7 @@ class Workflow:
                         self.update(message='Antwort wird an den verbundenen Chat übergeben …')
                         if stop.is_set():
                             break
-                        self.service.bridge.send(identity, text)
+                        self.service.bridge.send(identity, text, source=source)
                         self.service.forwarded()
                         self.update(message='Chat arbeitet · warte auf vollständige Antwort …')
                         text = self.answer(identity, (before.get('latestTurn') or {}).get('id'), stop)
@@ -245,6 +246,8 @@ class Workflow:
                         if limit_reached:
                             self.update(status='completed', message='Counter erreicht · automatisch gestoppt.')
                             return
+                if node['kind']=='chat':
+                    source = identity
                 if current not in edges:
                     self.update(status='completed', message='Ende des verbundenen Pfads erreicht.')
                     return

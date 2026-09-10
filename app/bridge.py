@@ -126,9 +126,9 @@ class Bridge:
                 for channel in self.pending.values():
                     channel.put({'error':{'message':'Verbindung zur Codex-App unterbrochen; Versandstatus prÃ¼fen.'}})
 
-    def call(self, name, arguments):
+    def call(self, name, arguments, *, source=None):
         self.ensure()
-        result = self.request('tools/call', {'name':name,'arguments':arguments,'_meta':{'threadId':self.context}})
+        result = self.request('tools/call', {'name':name,'arguments':arguments,'_meta':{'threadId':source if source is not None else self.context}})
         texts = [item.get('text','') for item in result.get('content',[]) if item.get('type')=='text']
         if result.get('isError'):
             raise BridgeError('\n'.join(texts) or 'Die Codex-App hat die Anfrage abgelehnt.')
@@ -139,7 +139,9 @@ class Bridge:
                 continue
         raise BridgeError('Die Codex-App hat keine auswertbare BestÃ¤tigung geliefert.')
 
-    def send(self, target, text):
+    def send(self, target, text, *, source):
+        if not source or source == target:
+            raise BridgeError('Weitergabe benötigt einen eindeutigen anderen Quellchat.')
         # Read the app's own live state; no independent app-server is launched.
         status = self.call('wait_threads', {'targets':[{'threadId':target}],'timeoutMs':0})
         polls = status.get('polls',[])
@@ -150,7 +152,7 @@ class Bridge:
             raise BridgeError('Die Codex-App hat einen anderen Zielchat zurÃ¼ckgegeben.')
         if entry.get('thread',{}).get('status',{}).get('type')=='active' or entry.get('latestTurn',{}).get('status')=='inProgress':
             raise BridgeError('Der Zielchat arbeitet bereits.')
-        response = self.call('send_message_to_thread', {'threadId':target,'prompt':text})
+        response = self.call('send_message_to_thread', {'threadId':target,'prompt':text}, source=source)
         if response.get('threadId') != target:
             raise BridgeError('Versand nicht eindeutig bestÃ¤tigt. Zielchat vor erneutem Versuch prÃ¼fen.')
         return response

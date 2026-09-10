@@ -61,7 +61,7 @@ class ServiceTests(unittest.TestCase):
                     result = service.send_transfer("test-token", B)
                     self.assertEqual(result["confirmation"], {"threadId": B})
                     self.assertEqual(service.send_transfer("test-token", B), result)
-                    send.assert_called_once_with(B, "Die kopierte Antwort")
+                    send.assert_called_once_with(B, "Die kopierte Antwort", source=A)
                     check.assert_called_once_with(A, B)
             finally:
                 service.close()
