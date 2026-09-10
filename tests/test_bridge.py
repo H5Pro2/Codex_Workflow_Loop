@@ -18,3 +18,14 @@ class DesktopBridgeTests(unittest.TestCase):
             with self.assertRaises(BridgeError):
                 bridge.send("target", "message")
             self.assertEqual(call.call_count, 1)
+
+    def test_missing_runtime_uses_current_codex_environment(self):
+        import tempfile
+        from pathlib import Path
+        from app.bridge import resolve_runtime
+        with tempfile.TemporaryDirectory() as directory:
+            node=Path(directory)/'node.exe';node.touch()
+            module=Path(directory)/'server.mjs';module.touch()
+            with patch.dict('os.environ', {'CODEX_MCP_NODE_PATH':str(node)}):
+                config=resolve_runtime(dict(node=str(Path(directory)/'missing.exe'),module=str(module),pipe='local',thread='context'))
+            self.assertEqual(config['node'],str(node))

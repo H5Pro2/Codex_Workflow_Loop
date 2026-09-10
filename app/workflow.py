@@ -123,6 +123,12 @@ class Workflow:
     def start(self):
         with self.lock:
             if self.busy() or (self.thread and self.thread.is_alive()):
+                raise ValueError('Der Ablauf läuft bereits.')
+            _, initial_nodes, _, initial_path = validate(self.graph, {r['id'] for r in self.service.rows}, True)
+            source = next(initial_nodes[k]['chat'] for k in initial_path if initial_nodes[k]['kind']=='chat')
+        self.service.bridge.preflight(source)
+        with self.lock:
+            if self.busy() or (self.thread and self.thread.is_alive()):
                 raise ValueError('Der Ablauf läuft bereits oder wird noch gestoppt.')
             _, nodes, edges, path = validate(self.graph, {r['id'] for r in self.service.rows}, True)
             participants = [nodes[k]['chat'] for k in path if nodes[k]['kind']=='chat']

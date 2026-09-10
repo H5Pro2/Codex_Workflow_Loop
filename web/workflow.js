@@ -1,23 +1,23 @@
 /* Standalone graph editor; the server alone owns execution. */
 (()=>{
  const q=s=>document.querySelector(s), svgNS='http://www.w3.org/2000/svg';
- let graph={nodes:[],edges:[]}, currentState={}, dirty=false, saving=false, timer, selected=null, zoom=1, version=0;
+ let graph={nodes:[],edges:[]}, currentState={}, dirty=false, saving=false, timer, selected=null, zoom=1, version=0, starting=false, saveError='';
  const dialog=q('#flow-dialog'), board=q('#flow-board');
  const grid=20,snap=value=>Math.round(value/grid)*grid;
  board.style.setProperty('--grid-size',grid+'px');
  const el=(tag,text,cls='')=>{const e=document.createElement(tag);e.textContent=text;e.className=cls;return e;};
  const running=()=>['running','stopping'].includes(currentState.workflow?.run?.status);
  const hint=(message,failed=false)=>{q('#flow-hint').textContent=message;q('#flow-hint').classList.toggle('failed',failed);};
- async function api(body){const r=await fetch('/api/workflow',{method:'POST',headers:{'Content-Type':'application/json','X-Workflow-Loop':'1'},body:JSON.stringify(body),signal:AbortSignal.timeout(15000)});const data=await r.json();if(!r.ok)throw new Error(data.error||'Workflow-Anfrage fehlgeschlagen');return data;}
+ async function api(body){const r=await fetch('/api/workflow',{method:'POST',headers:{'Content-Type':'application/json','X-Workflow-Loop':'1'},body:JSON.stringify(body),signal:AbortSignal.timeout(body.action==='start'?60000:15000)});const data=await r.json();if(!r.ok)throw new Error(data.error||'Workflow-Anfrage fehlgeschlagen');return data;}
  async function save(){
   clearTimeout(timer);if(!dirty)return true;if(saving){timer=setTimeout(save,500);return false;}
-  saving=true;const v=version;
+  saving=true;saveError='';updateButtons();const v=version;
   try{await api({action:'save',graph});if(v===version)dirty=false;hint(dirty?'Weitere Änderungen werden gespeichert …':'Gespeichert');return !dirty;}
-  catch(e){hint(e.message,true);return false;}
+  catch(e){saveError='Änderungen nicht gespeichert: '+e.message;hint(saveError,true);q('#flow-status').textContent=saveError;return false;}
   finally{saving=false;updateButtons();if(dirty&&version!==v)timer=setTimeout(save,300);}
  }
  function changed(){dirty=true;version++;hint('Änderungen werden gespeichert …');clearTimeout(timer);timer=setTimeout(save,500);updateButtons();}
- function updateButtons(){q('#flow-start').disabled=running()||dirty||saving;q('#flow-stop').disabled=!running();q('#flow-save').disabled=running()||saving;for(const id of ['node-tool','node-chat'])q('#'+id).disabled=running();}
+ function updateButtons(){q('#flow-start').disabled=running()||starting||saving;q('#flow-stop').disabled=!running();q('#flow-save').disabled=running()||saving;for(const id of ['node-tool','node-chat'])q('#'+id).disabled=running();}
  function label(n){return n.kind==='start'?'Start':n.kind==='counter'?'Loop / Counter':(currentState.chats||[]).find(c=>c.id===n.chat)?.title||'Codex-Chat';}
  function roundedRoute(points){
   points=points.filter((p,i)=>!i||p[0]!==points[i-1][0]||p[1]!==points[i-1][1]);
@@ -125,7 +125,15 @@
   setZoom(zoom*Math.exp(-Math.max(-150,Math.min(150,delta))*.002));
   viewport.scrollLeft=worldX*zoom-x;viewport.scrollTop=worldY*zoom-y;
  },{passive:false});
- q('#flow-start').onclick=async()=>{try{const result=await api({action:'start'});window.WorkflowUI.update(result);}catch(e){q('#flow-status').textContent=e.message;}};
+ q('#flow-start').onclick=async()=>{
+  if(running()||starting||saving)return;
+  starting=true;updateButtons();
+  try{
+   if(dirty&&!await save())return;
+   const result=await api({action:'start'});window.WorkflowUI.update(result);
+  }catch(e){q('#flow-status').textContent=e.message;}
+  finally{starting=false;updateButtons();}
+ };
  q('#flow-stop').onclick=async()=>{try{window.WorkflowUI.update(await api({action:'stop'}));}catch(e){q('#flow-status').textContent=e.message;}};
- window.WorkflowUI={reloadGraph(){graph=structuredClone(currentState.workflow?.graph||{nodes:[],edges:[]});dirty=false;clearTimeout(timer);if(dialog.open)render();},update(state){const wasRunning=running();currentState=state;q('#flow-status').textContent=state.workflow?.run?.message||'Start mit dem Quellchat verbinden.';updateButtons();if(dialog.open&&wasRunning!==running())render();else paintStatus();}};
+ window.WorkflowUI={reloadGraph(){graph=structuredClone(currentState.workflow?.graph||{nodes:[],edges:[]});dirty=false;clearTimeout(timer);if(dialog.open)render();},update(state){const wasRunning=running();currentState=state;if(wasRunning&&!running()&&dirty)save();q('#flow-status').textContent=saveError||state.workflow?.run?.message||'Start mit dem Quellchat verbinden.';updateButtons();if(dialog.open&&wasRunning!==running())render();else paintStatus();}};
 })();

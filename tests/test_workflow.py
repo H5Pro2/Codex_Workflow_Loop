@@ -24,6 +24,9 @@ class FakeService:
         self.workflow=Workflow(self)
         self.workflow.graph=graph()
 
+    def preflight(self, identity):
+        pass
+
     def forwarded(self):
         pass
 
@@ -120,3 +123,12 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(service.workflow.graph['nodes'][1]['x'],240)
         updated['nodes'][-1]['limit']=99
         with self.assertRaises(ValueError):service.workflow.save_graph(updated)
+
+    def test_preflight_failure_preserves_counter_and_sends_nothing(self):
+        service=FakeService()
+        service.workflow.run.update(status='completed',counts={'counter':5})
+        def fail(identity): raise ValueError('Disconnected')
+        service.preflight=fail
+        with self.assertRaises(ValueError):service.workflow.start()
+        self.assertEqual(service.workflow.run['counts'],{'counter':5})
+        self.assertEqual(service.sent,[])

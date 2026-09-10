@@ -11,6 +11,30 @@ class BridgeError(RuntimeError):
     pass
 
 
+def resolve_runtime(config):
+    result = dict(config)
+    for key in ('node', 'module'):
+        saved = Path(result.get(key, ''))
+        if saved.is_file():
+            continue
+        candidates = []
+        if key == 'node':
+            env = os.environ.get('CODEX_MCP_NODE_PATH')
+            if env:
+                candidates.append(Path(env))
+            root = Path(os.environ.get('LOCALAPPDATA', str(Path.home() / 'AppData/Local'))) / 'OpenAI/Codex/runtimes/cua_node'
+            candidates.extend(sorted(root.glob('*/bin/node.exe'), key=lambda p:p.stat().st_mtime, reverse=True))
+        elif saved.name == 'server.mjs' and saved.parent.parent.name == 'codex-app-tools':
+            candidates.extend(sorted(saved.parent.parent.glob('*/server.mjs'), key=lambda p:p.stat().st_mtime, reverse=True))
+        match = next((p for p in candidates if p.is_file()), None)
+        if match is None:
+            raise BridgeError('Codex-Runtime oder App-Modul fehlt. Codex öffnen und Workflow Loop aus der aktuellen Codex-Umgebung neu starten.')
+        result[key] = str(match)
+    if not result.get('pipe') or not result.get('thread'):
+        raise BridgeError('Die lokale Codex-Verbindung muss neu eingerichtet werden.')
+    return result
+
+
 class Bridge:
     def __init__(self, notify=lambda *args: None):
         self.notify = notify
@@ -31,6 +55,7 @@ class Bridge:
                 config = json.loads(config_path.read_text(encoding='utf-8'))
             except (OSError, ValueError):
                 raise BridgeError('Die Verbindung zur laufenden Codex-App ist noch nicht eingerichtet.')
+            config = resolve_runtime(config)
             self.context = config['thread']
             environment = os.environ.copy()
             environment['CODEX_APP_TOOLS_PIPE_PATH'] = config['pipe']
@@ -47,6 +72,17 @@ class Bridge:
             except Exception:
                 self.process.terminate()
                 raise
+
+    def preflight(self, identity):
+        # Read-only check: never retry a message dispatch.
+        try:
+            result = self.call('wait_threads', {'targets':[{'threadId':identity}], 'timeoutMs':0})
+        except (OSError, BridgeError) as error:
+            self.close()
+            raise BridgeError('Codex-Verbindung nicht bereit. Codex öffnen; gegebenenfalls Workflow Loop aus der aktuellen Codex-Umgebung neu starten. Der Zähler bleibt erhalten. ' + str(error)) from error
+        polls = result.get('polls', [])
+        if not polls or polls[0].get('thread', {}).get('id') != identity:
+            raise BridgeError('Codex bestätigt den Quellchat nicht. Der Zähler bleibt erhalten.')
 
     def write(self, message):
         with self.lock:
@@ -66,7 +102,7 @@ class Bridge:
             try:
                 response = channel.get(timeout=45)
             except queue.Empty:
-                raise BridgeError('Keine eindeutige Codex-Bestätigung. Vor erneutem Senden den Zielchat prüfen.')
+                raise BridgeError('Keine eindeutige Codex-BestÃ¤tigung. Vor erneutem Senden den Zielchat prÃ¼fen.')
             if 'error' in response:
                 raise BridgeError(response['error'].get('message','Codex-Anfrage fehlgeschlagen'))
             return response.get('result', {})
@@ -88,7 +124,7 @@ class Bridge:
         finally:
             with self.lock:
                 for channel in self.pending.values():
-                    channel.put({'error':{'message':'Verbindung zur Codex-App unterbrochen; Versandstatus prüfen.'}})
+                    channel.put({'error':{'message':'Verbindung zur Codex-App unterbrochen; Versandstatus prÃ¼fen.'}})
 
     def call(self, name, arguments):
         self.ensure()
@@ -101,22 +137,22 @@ class Bridge:
                 return json.loads(text)
             except ValueError:
                 continue
-        raise BridgeError('Die Codex-App hat keine auswertbare Bestätigung geliefert.')
+        raise BridgeError('Die Codex-App hat keine auswertbare BestÃ¤tigung geliefert.')
 
     def send(self, target, text):
         # Read the app's own live state; no independent app-server is launched.
         status = self.call('wait_threads', {'targets':[{'threadId':target}],'timeoutMs':0})
         polls = status.get('polls',[])
         if not polls:
-            raise BridgeError('Zielchat in der laufenden Codex-App nicht bestätigt.')
+            raise BridgeError('Zielchat in der laufenden Codex-App nicht bestÃ¤tigt.')
         entry = polls[0]
         if entry.get('thread',{}).get('id') != target:
-            raise BridgeError('Die Codex-App hat einen anderen Zielchat zurückgegeben.')
+            raise BridgeError('Die Codex-App hat einen anderen Zielchat zurÃ¼ckgegeben.')
         if entry.get('thread',{}).get('status',{}).get('type')=='active' or entry.get('latestTurn',{}).get('status')=='inProgress':
             raise BridgeError('Der Zielchat arbeitet bereits.')
         response = self.call('send_message_to_thread', {'threadId':target,'prompt':text})
         if response.get('threadId') != target:
-            raise BridgeError('Versand nicht eindeutig bestätigt. Zielchat vor erneutem Versuch prüfen.')
+            raise BridgeError('Versand nicht eindeutig bestÃ¤tigt. Zielchat vor erneutem Versuch prÃ¼fen.')
         return response
 
     def close(self):
