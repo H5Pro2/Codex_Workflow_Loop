@@ -1,0 +1,111 @@
+import threading
+import unittest
+from app.workflow import Workflow, validate
+
+
+def graph(limit=5):
+    return {'nodes':[
+        {'id':'s','kind':'start','prompt':'Hallo'},
+        {'id':'a','kind':'chat','chat':'A'},
+        {'id':'b','kind':'chat','chat':'B'},
+        {'id':'c','kind':'chat','chat':'C'},
+        {'id':'counter','kind':'counter','limit':limit}],
+        'edges':[{'source':'s','target':'a'},{'source':'a','target':'b'},{'source':'b','target':'counter'},{'source':'counter','target':'a'}]}
+
+
+class FakeService:
+    def __init__(self):
+        self.lock=threading.RLock()
+        self.rows=[{'id':k} for k in 'ABC']
+        self.monitored=[]
+        self.sent=[]
+        self.turns={k:'old' for k in 'ABC'}
+        self.bridge=self
+        self.workflow=Workflow(self)
+        self.workflow.graph=graph()
+
+    def forwarded(self):
+        pass
+
+    def save(self):
+        pass
+
+    def command(self, action, identity):
+        self.monitored.append(identity)
+
+    def call(self, name, args):
+        identity=args['targets'][0]['threadId']
+        return {'polls':[{'thread':{'id':identity,'status':{'type':'idle'}},'latestTurn':{'id':self.turns[identity],'status':'completed'}}]}
+
+    def send(self, identity, text):
+        self.sent.append((identity,text))
+        self.turns[identity]='turn-'+str(len(self.sent))
+
+    def workflow_answer(self, identity, turn):
+        return 'Antwort '+turn
+
+
+class WorkflowTests(unittest.TestCase):
+    def test_five_rounds_and_disconnected_chat_untouched(self):
+        service=FakeService()
+        service.workflow.start()
+        service.workflow.thread.join(3)
+        self.assertFalse(service.workflow.thread.is_alive())
+        self.assertEqual(service.monitored,['A','B'])
+        self.assertEqual([x[0] for x in service.sent],['B','A']*5)
+        self.assertEqual(service.sent[0],('B','Antwort old'))
+        self.assertEqual(service.sent[1],('A','Antwort turn-1'))
+        self.assertEqual(service.workflow.run['counts'],{'counter':5})
+        self.assertEqual(service.workflow.run['status'],'completed')
+
+    def test_counter_between_chats_stops_at_its_position(self):
+        service=FakeService()
+        service.workflow.graph=graph(1)
+        service.workflow.graph['edges']=[{'source':'s','target':'a'},{'source':'a','target':'counter'},{'source':'counter','target':'b'},{'source':'b','target':'a'}]
+        service.workflow.start();service.workflow.thread.join(3)
+        self.assertEqual([x[0] for x in service.sent],['B'])
+
+    def test_stop_during_inflight_send_prevents_next_send(self):
+        service=FakeService();entered=threading.Event();release=threading.Event()
+        original=service.send
+        def send(identity,text):
+            original(identity,text);entered.set();release.wait(3)
+        service.send=send
+        service.workflow.start();self.assertTrue(entered.wait(2))
+        service.workflow.stop();release.set();service.workflow.thread.join(3)
+        self.assertEqual(len(service.sent),1)
+        self.assertEqual(service.workflow.run['status'],'stopped')
+
+    def test_unbounded_cycle_and_ambiguous_output_rejected(self):
+        g=graph();g['edges']=[{'source':'s','target':'a'},{'source':'a','target':'b'},{'source':'b','target':'a'}]
+        with self.assertRaises(ValueError):validate(g,set('ABC'),True)
+        g=graph();g['edges'].append({'source':'a','target':'c'})
+        with self.assertRaises(ValueError):validate(g,set('ABC'),True)
+
+    def test_restart_does_not_automatically_send(self):
+        service=FakeService()
+        restored=Workflow(service,{'graph':graph(),'run':{'status':'running','counts':{'counter':2},'participants':['A','B']}})
+        self.assertEqual(restored.run['status'],'stopped')
+        self.assertEqual(restored.run['counts'],{'counter':2})
+        self.assertEqual(service.sent,[])
+
+    def test_missing_exact_answer_stops_instead_of_forwarding_old_text(self):
+        service=FakeService()
+        def missing(identity, turn):
+            raise ValueError('Antwort nicht eindeutig')
+        service.workflow_answer=missing
+        service.workflow.start();service.workflow.thread.join(3)
+        self.assertEqual(len(service.sent),0)
+        self.assertEqual(service.workflow.run['status'],'error')
+
+    def test_unfinished_source_does_not_send(self):
+        service=FakeService()
+        service.call=lambda *args: {'polls':[{'thread':{'id':'A','status':{'type':'idle'}},'latestTurn':{'id':'old','status':'failed'}}]}
+        service.workflow.start();service.workflow.thread.join(3)
+        self.assertEqual(service.sent,[])
+        self.assertEqual(service.workflow.run['status'],'error')
+
+    def test_start_needs_no_prompt_and_discards_legacy_prompt(self):
+        g=graph();g['nodes'][0].pop('prompt')
+        clean,*_=validate(g,set('ABC'),True)
+        self.assertNotIn('prompt',clean['nodes'][0])
