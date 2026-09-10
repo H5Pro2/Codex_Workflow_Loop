@@ -132,3 +132,27 @@ class WorkflowTests(unittest.TestCase):
         with self.assertRaises(ValueError):service.workflow.start()
         self.assertEqual(service.workflow.run['counts'],{'counter':5})
         self.assertEqual(service.sent,[])
+
+    def test_counter_change_resets_finished_run_but_position_keeps_count(self):
+        import copy
+        service=FakeService()
+        service.workflow.graph=graph(2)
+        service.workflow.run.update(status='completed',counts={'counter':2})
+        moved=copy.deepcopy(service.workflow.graph)
+        moved['nodes'][0]['x']=200
+        service.workflow.save_graph(moved)
+        self.assertEqual(service.workflow.run['counts'],{'counter':2})
+        moved['nodes'][-1]['limit']=5
+        service.workflow.save_graph(moved)
+        self.assertEqual(service.workflow.run['counts'],{})
+        self.assertEqual(service.workflow.run['status'],'idle')
+
+    def test_counter_reset_rolls_back_when_save_fails(self):
+        service=FakeService()
+        service.workflow.graph=graph(2)
+        service.workflow.run.update(status='completed',counts={'counter':2})
+        def fail():raise OSError('Disk unavailable')
+        service.save=fail
+        with self.assertRaises(OSError):service.workflow.save_graph(graph(5))
+        self.assertEqual(service.workflow.run['counts'],{'counter':2})
+        self.assertEqual(service.workflow.graph['nodes'][-1]['limit'],2)

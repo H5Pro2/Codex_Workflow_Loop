@@ -112,12 +112,17 @@ class Workflow:
                 if structure(clean) != structure(current):
                     raise ValueError('Während des Ablaufs dürfen nur Positionen verändert werden.')
             previous = self.graph
+            previous_run = copy.deepcopy(self.run)
+            limits = lambda plan: {n['id']:n.get('limit',5) for n in plan['nodes'] if n['kind']=='counter'}
+            if limits(previous) != limits(clean):
+                self.run = dict(status='idle', message='Counter geändert · bereit für einen neuen Ablauf.', counts={}, node=None, participants=[])
             self.graph = clean
         try:
             self.persist()
         except OSError:
             with self.lock:
                 self.graph = previous
+                self.run = previous_run
             raise
 
     def start(self):
