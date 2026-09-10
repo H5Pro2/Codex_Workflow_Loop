@@ -67,7 +67,7 @@
   for(const n of graph.nodes){
    const card=el('article','',`flow-node ${n.kind}`);card.dataset.node=n.id;card.style.left=n.x+'px';card.style.top=n.y+'px';
    const header=el('div','','flow-node-head'),name=el('strong',label(n)),remove=el('button','×','quiet');remove.setAttribute('aria-label',label(n)+' entfernen');remove.disabled=running();remove.onclick=()=>{graph.nodes=graph.nodes.filter(x=>x.id!==n.id);graph.edges=graph.edges.filter(e=>e.source!==n.id&&e.target!==n.id);changed();render();};header.append(name,remove);card.append(header);
-   header.onpointerdown=e=>{if(e.button!==0||running()||e.target.closest('button'))return;e.preventDefault();header.setPointerCapture(e.pointerId);const x=e.clientX,y=e.clientY,ox=n.x,oy=n.y;
+   card.onpointerdown=e=>{if(e.button!==0||e.target.closest('button,input,textarea,select'))return;e.preventDefault();header.setPointerCapture(e.pointerId);const x=e.clientX,y=e.clientY,ox=n.x,oy=n.y;
     header.onpointermove=move=>{n.x=Math.max(20,Math.min(1900,snap(ox+(move.clientX-x)/zoom)));n.y=Math.max(20,Math.min(1200,snap(oy+(move.clientY-y)/zoom)));card.style.left=n.x+'px';card.style.top=n.y+'px';drawEdges();};
     header.onpointerup=()=>{header.onpointermove=null;header.onpointerup=null;changed();};header.onpointercancel=()=>{header.onpointermove=null;changed();};};
    if(n.kind!=='start'){const input=el('button','', 'flow-port input');input.dataset.in=n.id;input.title='Eingang';input.setAttribute('aria-label',label(n)+' Eingang');input.onclick=()=>connect(n.id);input.disabled=running();card.append(input);}

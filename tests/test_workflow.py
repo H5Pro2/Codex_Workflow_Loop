@@ -109,3 +109,14 @@ class WorkflowTests(unittest.TestCase):
         g=graph();g['nodes'][0].pop('prompt')
         clean,*_=validate(g,set('ABC'),True)
         self.assertNotIn('prompt',clean['nodes'][0])
+
+    def test_running_allows_only_position_changes(self):
+        import copy
+        service=FakeService()
+        service.workflow.run['status']='running'
+        updated=copy.deepcopy(service.workflow.graph)
+        updated['nodes'][1]['x']=240
+        service.workflow.save_graph(updated)
+        self.assertEqual(service.workflow.graph['nodes'][1]['x'],240)
+        updated['nodes'][-1]['limit']=99
+        with self.assertRaises(ValueError):service.workflow.save_graph(updated)

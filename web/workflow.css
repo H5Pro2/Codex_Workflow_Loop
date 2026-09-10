@@ -13,3 +13,5 @@
 .flow-main .flow-buttons{gap:8px}
 .flow-main>p{font-size:13px;line-height:1.5}
 @media(max-width:480px){.flow-main{padding:0 0 20px}.flow-main>.toolbar{align-items:flex-start}.flow-main .flow-buttons{gap:6px}}
+
+.flow-node{cursor:grab;touch-action:none}.flow-node input{cursor:text}

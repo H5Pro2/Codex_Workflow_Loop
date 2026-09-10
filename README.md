@@ -2,6 +2,20 @@
 
 Lokale Weboberfläche für die Codex-Desktop-App: Chats überwachen, Antworten weitergeben und begrenzte Dialogschleifen mit einem visuellen Verbindungseditor ausführen.
 
+## Einblicke
+
+### Hauptoberfläche
+
+Überwachung, Durchlaufzähler und Aktivitäten im Hauptfenster.
+
+![Codex Workflow Loop – Hauptoberfläche](Bilder/overlay.png)
+
+### Chat-Verbindungen
+
+Visueller Ablauf mit Start, Chats und Loop-Counter. Startverbindungen sind grün, normale Verbindungen blau und Counter-Ausgänge orange.
+
+![Codex Workflow Loop – Verbindungseditor](Bilder/chat_verbindung.png)
+
 ## Voraussetzungen und Installation
 
 - Windows mit installierter Codex-Desktop-App und lokal verfügbaren Chats.
@@ -27,7 +41,7 @@ Beispiel: **Start → Chat 1 → Chat 2 → Counter → Chat 1**. Start verwende
 
 **Start** in der Hauptübersicht aktiviert nur die Überwachung der vom Start-Baustein erreichbaren Chats und führt diese nacheinander aus. Unverbundene Chats werden nicht zusätzlich aktiviert. Zuvor manuell eingeschaltete Überwachungen bleiben unverändert. Arbeitet der Zielchat noch, wartet die Übergabe. Zum Einstieg wird die letzte fertige Antwort des Quellchats verwendet; danach wird nur die vollständige Antwort des neu gestarteten Durchlaufs weitergegeben; unklare Antworten halten den Ablauf an.
 
-**Stopp** verhindert weitere Übergaben. Ein bereits begonnener Sendevorgang und eine laufende Antwort dürfen fertig werden. Neuer Start verwendet die letzte fertige Antwort des Quellchats und setzt die Counter zurück. Während eines laufenden Ablaufs sind Planänderungen und manuelle Aktionen für beteiligte Chats gesperrt. Kopieren und Einfügen bleiben sonst verfügbar.
+**Stopp** verhindert weitere Übergaben. Ein bereits begonnener Sendevorgang und eine laufende Antwort dürfen fertig werden. Neuer Start verwendet die letzte fertige Antwort des Quellchats und setzt die Counter zurück. Während eines laufenden Ablaufs sind Änderungen an Verbindungen und Counter-Einstellungen sowie manuelle Aktionen für beteiligte Chats gesperrt. Bausteine dürfen weiterhin verschoben werden. Kopieren und Einfügen bleiben sonst verfügbar.
 
 Positionen, Verbindungen, Einstellungen und Counter-Fortschritt bleiben nach Browser-Neuladen erhalten. Nach einem Dienstneustart bleibt ein unterbrochener Ablauf gestoppt; es wird keine Nachricht automatisch erneut gesendet. Fehler, Benutzereingaben und unbestätigte Übergaben halten den Ablauf an.
 

@@ -106,7 +106,11 @@ class Workflow:
         clean, _, _, _ = validate(graph, {r['id'] for r in self.service.rows})
         with self.lock:
             if self.busy():
-                raise ValueError('Den Ablauf vor Änderungen stoppen.')
+                def structure(value):
+                    return dict(nodes=sorted([{k:v for k,v in n.items() if k not in ('x','y')} for n in value['nodes']], key=lambda n:n['id']), edges=sorted(value['edges'], key=lambda e:(e['source'],e['target'])))
+                current, _, _, _ = validate(self.graph, {r['id'] for r in self.service.rows})
+                if structure(clean) != structure(current):
+                    raise ValueError('Während des Ablaufs dürfen nur Positionen verändert werden.')
             previous = self.graph
             self.graph = clean
         try:
