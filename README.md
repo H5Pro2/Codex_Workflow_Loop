@@ -6,9 +6,9 @@ Lokale Weboberfläche für die Codex-Desktop-App: Chats überwachen, Antworten w
 
 ### Hauptoberfläche
 
-Überwachung, Durchlaufzähler und Aktivitäten im Hauptfenster.
+Codex Workflow Loop im Seitenpanel der Codex-Desktop-App: Überwachung, Durchlaufzähler und Aktivitäten direkt neben dem Chat.
 
-![Codex Workflow Loop – Hauptoberfläche](Bilder/overlay.png)
+![Codex Workflow Loop im Codex-Seitenpanel](Bilder/mit_Codex_overlay.png)
 
 ### Chat-Verbindungen
 
