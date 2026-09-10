@@ -230,7 +230,7 @@ class Workflow:
                         self.update(message='Antwort wird an den verbundenen Chat übergeben …')
                         if stop.is_set():
                             break
-                        self.service.bridge.send(identity, text, source=source)
+                        self.service.bridge.send(identity, self.service.forward_text(source, text), source=source)
                         self.service.forwarded()
                         self.update(message='Chat arbeitet · warte auf vollständige Antwort …')
                         text = self.answer(identity, (before.get('latestTurn') or {}).get('id'), stop)

@@ -158,7 +158,7 @@ class Service:
             self.check_target(transfer["source"], target)
             with self.lock:
                 self.deliveries[key] = {"pending": True}
-            confirmation = self.bridge.send(target, transfer["text"], source=transfer["source"])
+            confirmation = self.bridge.send(target, self.forward_text(transfer["source"], transfer["text"]), source=transfer["source"])
             self.forwarded()
             outcome = dict(sent=True, target=target, confirmation=confirmation)
             with self.lock:
@@ -167,6 +167,14 @@ class Service:
         finally:
             with self.lock:
                 self.sending.discard(target)
+
+    def forward_text(self, source, text):
+        titles = read_titles(self.sessions.parent, [source])
+        with self.lock:
+            row = next((r for r in self.rows if r['id'] == source), {})
+            title = titles.get(source) or row.get('title') or row.get('label') or source
+        title = ' '.join(str(title).split())
+        return f'Nachricht von „{title}“\n\n{text}'
 
     def forwarded(self):
         with self.lock:

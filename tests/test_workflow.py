@@ -28,6 +28,9 @@ class FakeService:
     def preflight(self, identity):
         pass
 
+    def forward_text(self, source, text):
+        return f'Nachricht von „{source}“\n\n{text}'
+
     def forwarded(self):
         pass
 
@@ -59,8 +62,8 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(service.monitored,['A','B'])
         self.assertEqual([x[0] for x in service.sent],['B','A']*5)
         self.assertEqual(service.sources,['A','B']*5)
-        self.assertEqual(service.sent[0],('B','Antwort old'))
-        self.assertEqual(service.sent[1],('A','Antwort turn-1'))
+        self.assertEqual(service.sent[0],('B','Nachricht von „A“\n\nAntwort old'))
+        self.assertEqual(service.sent[1],('A','Nachricht von „B“\n\nAntwort turn-1'))
         self.assertEqual(service.workflow.run['counts'],{'counter':5})
         self.assertEqual(service.workflow.run['status'],'completed')
 

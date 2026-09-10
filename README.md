@@ -71,6 +71,8 @@ Vor dem Versand wird der Zustand des Zielchats direkt in der laufenden Codex-App
 
 Der Direktversand verwendet das mitgelieferte **codex-app-tools/server.mjs** über dessen MCP-Schnittstelle. Dieses Modul verbindet sich mit der laufenden Desktop-App. Es ruft zuerst **wait_threads** und dann **send_message_to_thread** auf, dieselbe App-Funktion wie der direkte Agententest. Es wird kein eigener Codex-app-server gestartet. Der frühere experimentelle app-server-Transport wurde ersetzt.
 
+Jede Weitergabe erhält eine Kopfzeile **Nachricht von „Chatname“** mit dem aktuellen Namen des Quellchats. Der Antworttext folgt darunter unverändert; beim Kopieren allein wird keine Kopfzeile ergänzt.
+
 Bei einer Weitergabe wird der tatsächliche Quellchat als Absenderkontext verwendet: im Loop der Chat, dessen Antwort weitergereicht wird, beim manuellen Einfügen der kopierte Quellchat. Der technische Einrichtungskontext dient nicht als Absender der Nachrichten. Bereits vorhandene Rücksendeanweisungen in Chatverläufen werden dadurch nicht geändert.
 
 Die lokale Verbindungszuordnung liegt in **data/app-connection.json**: Pfad zum mitgelieferten Node-Runtime und MCP-Modul, App-Pipe und zugehöriger Codex-Kontext. Sie wurde aus der aktuellen Codex-Umgebung übernommen. Diese interne App-Verbindung ist versionsabhängig. Wird sie nach einem App-Update oder Neustart ungültig, muss sie aus Codex neu eingerichtet werden; es gibt keinen stillen Rückfall auf einen separaten app-server. Die Zuordnung wird nicht an den Browser ausgegeben. Es gibt derzeit keinen automatischen Einrichtungsassistenten.

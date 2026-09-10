@@ -52,6 +52,15 @@ class ServiceTests(unittest.TestCase):
             finally:
                 service.close()
 
+    def test_forward_uses_current_title_and_preserves_answer(self):
+        with tempfile.TemporaryDirectory() as directory:
+            service=Service(Path(directory)/'chats.json', Path(directory))
+            try:
+                service.rows=[dict(id=A,title='Alter Name')]
+                with patch('app.service.read_titles',return_value={A:'MCM-Forscher 2'}):
+                    self.assertEqual(service.forward_text(A,'Antwort\nZeile 2'), 'Nachricht von „MCM-Forscher 2“\n\nAntwort\nZeile 2')
+            finally:service.close()
+
     def test_send_uses_copied_text_and_deduplicates(self):
         with tempfile.TemporaryDirectory() as directory:
             service = Service(Path(directory) / "chats.json", Path(directory))
@@ -61,7 +70,7 @@ class ServiceTests(unittest.TestCase):
                     result = service.send_transfer("test-token", B)
                     self.assertEqual(result["confirmation"], {"threadId": B})
                     self.assertEqual(service.send_transfer("test-token", B), result)
-                    send.assert_called_once_with(B, "Die kopierte Antwort", source=A)
+                    send.assert_called_once_with(B, f"Nachricht von „{A}“\n\nDie kopierte Antwort", source=A)
                     check.assert_called_once_with(A, B)
             finally:
                 service.close()
