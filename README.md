@@ -92,6 +92,21 @@ Die Pipe stammt aus `CODEX_APP_TOOLS_PIPE_PATH`, der Node-Pfad aus `CODEX_MCP_NO
 
 Das Beenden des lokalen Dienstes schließt nur den MCP-Verbindungshelfer. Bereits in der Desktop-App gestartete Chats bleiben Eigentum der App.
 
+## Direkte Sendefunktion der Agenten deaktivieren
+
+Damit Agenten nicht parallel zum Loop selbst Nachrichten senden, kann im **Projekt der beteiligten Chats** eine lokale `.codex/config.toml` ergänzt werden. Vorhandene Konfiguration sorgfältig zusammenführen:
+
+```toml
+[plugins."codex-app-tools@openai-bundled".mcp_servers.codex_app]
+disabled_tools = ["send_message_to_thread"]
+```
+
+Dies ist eine dokumentierte Codex-Werkzeugfilterung für den installierten Plugin-Server `codex_app`. Sie gilt für das Projekt, nicht nur für einzelne Chats. Projektkonfigurationen werden nur für vertrauenswürdige Projekte geladen. Laufende Chats zuerst direkt in Codex stoppen und Codex neu starten; anschließend prüfen, ob die Funktion in den betroffenen Chats nicht mehr angeboten wird. Bis zu dieser Prüfung ist die wirksame Sperre nicht bestätigt. Ältere App-Versionen oder zusätzlich bereitgestellte Sendewerkzeuge können gesonderte Maßnahmen erfordern.
+
+Der eigenständige MCP-Prozess von Workflow Loop liest diese Projektfilter nicht und verwendet weiterhin die explizite Weitergabe über die Oberfläche. Die Filterung ist keine Betriebssystem-Sandbox gegen direkte Skript-/Pipe-Zugriffe bei uneingeschränktem Shellzugriff. Der Loop-Stopp beendet keine unabhängig in Codex gestarteten Antworten.
+
+Referenz: [Codex-Konfiguration: Plugin-MCP-Werkzeuge](https://learn.chatgpt.com/docs/config-file/config-reference).
+
 ## Statusanzeige
 
 Ein Rädchen erscheint nur bei aktueller Chat-Aktivität. Fertigmeldungen basieren auf Abschlussereignissen. Ein offener Start ohne Aktivität innerhalb von zwei Minuten führt zu Status unklar, nicht zu einer behaupteten Fertigmeldung. Lange Denkzeiten können deshalb vorübergehend unklar erscheinen.
