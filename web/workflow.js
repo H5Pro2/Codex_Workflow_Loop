@@ -1,7 +1,7 @@
 /* Standalone graph editor; the server alone owns execution. */
 (()=>{
  const q=s=>document.querySelector(s), svgNS='http://www.w3.org/2000/svg';
- let graph={nodes:[],edges:[]}, currentState={}, dirty=false, saving=false, timer, selected=null, zoom=1, version=0, starting=false, saveError='';
+ let graph={nodes:[],edges:[]}, currentState={}, dirty=false, saving=false, timer, selected=null, zoom=1, version=0, starting=false, saveError='', startError='';
  const dialog=q('#flow-dialog'), board=q('#flow-board');
  const grid=20,snap=value=>Math.round(value/grid)*grid;
  board.style.setProperty('--grid-size',grid+'px');
@@ -127,13 +127,13 @@
  },{passive:false});
  q('#flow-start').onclick=async()=>{
   if(running()||starting||saving)return;
-  starting=true;updateButtons();
+  starting=true;startError='';q('#flow-status').textContent='Verbindung wird geprüft …';updateButtons();
   try{
    if(dirty&&!await save())return;
    const result=await api({action:'start'});window.WorkflowUI.update(result);
-  }catch(e){q('#flow-status').textContent=e.message;}
+  }catch(e){startError=e.message;q('#flow-status').textContent=startError;}
   finally{starting=false;updateButtons();}
  };
  q('#flow-stop').onclick=async()=>{try{window.WorkflowUI.update(await api({action:'stop'}));}catch(e){q('#flow-status').textContent=e.message;}};
- window.WorkflowUI={reloadGraph(){graph=structuredClone(currentState.workflow?.graph||{nodes:[],edges:[]});dirty=false;clearTimeout(timer);if(dialog.open)render();},update(state){const wasRunning=running();currentState=state;if(wasRunning&&!running()&&dirty)save();q('#flow-status').textContent=saveError||state.workflow?.run?.message||'Start mit dem Quellchat verbinden.';updateButtons();if(dialog.open&&wasRunning!==running())render();else paintStatus();}};
+ window.WorkflowUI={reloadGraph(){graph=structuredClone(currentState.workflow?.graph||{nodes:[],edges:[]});dirty=false;clearTimeout(timer);if(dialog.open)render();},update(state){const wasRunning=running();currentState=state;if(wasRunning&&!running()&&dirty)save();q('#flow-status').textContent=startError||saveError||(starting?'Verbindung wird geprüft …':'')||state.workflow?.run?.message||'Start mit dem Quellchat verbinden.';updateButtons();if(dialog.open&&wasRunning!==running())render();else paintStatus();}};
 })();

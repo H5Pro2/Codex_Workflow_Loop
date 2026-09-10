@@ -180,3 +180,13 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(service.workflow.run['status'],'error')
         self.assertIn('außerhalb des Loops',service.workflow.run['message'])
         self.assertEqual(service.workflow.run['counts'],{})
+
+    def test_completed_counter_allows_fresh_start(self):
+        service=FakeService()
+        service.workflow.graph=graph(2)
+        service.workflow.run.update(status='completed',counts={'counter':2})
+        from unittest.mock import patch
+        with patch('app.workflow.threading.Thread'):
+            service.workflow.start()
+            self.assertEqual(service.workflow.run['counts'],{})
+            self.assertEqual(service.workflow.run['status'],'running')
