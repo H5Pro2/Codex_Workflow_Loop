@@ -46,3 +46,5 @@ input:not([type=checkbox]){background:var(--bg);border-color:var(--border)}butto
 :root{--ui-scale:.9;zoom:var(--ui-scale)}
 
 #debug-panel[open]{border-top:1px solid var(--border);margin-top:12px;padding-top:16px}
+
+.activity-divider{border:0;border-top:1px solid var(--border);margin:24px 0 16px}.activity-divider+.activity{margin-top:0}.activity+.activity{margin-top:12px}
