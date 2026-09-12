@@ -68,7 +68,7 @@
    const card=el('article','',`flow-node ${n.kind}`);card.dataset.node=n.id;card.style.left=n.x+'px';card.style.top=n.y+'px';
    const header=el('div','','flow-node-head'),name=el('strong',label(n)),remove=el('button','×','quiet');remove.setAttribute('aria-label',label(n)+' entfernen');remove.disabled=running();remove.onclick=()=>{graph.nodes=graph.nodes.filter(x=>x.id!==n.id);graph.edges=graph.edges.filter(e=>e.source!==n.id&&e.target!==n.id);changed();render();};header.append(name,remove);card.append(header);
    card.onpointerdown=e=>{if(e.button!==0||e.target.closest('button,input,textarea,select'))return;e.preventDefault();header.setPointerCapture(e.pointerId);const x=e.clientX,y=e.clientY,ox=n.x,oy=n.y;
-    header.onpointermove=move=>{n.x=Math.max(20,Math.min(1900,snap(ox+(move.clientX-x)/zoom)));n.y=Math.max(20,Math.min(1200,snap(oy+(move.clientY-y)/zoom)));card.style.left=n.x+'px';card.style.top=n.y+'px';drawEdges();};
+    header.onpointermove=move=>{n.x=Math.max(20,Math.min(1900,snap(ox+(move.clientX-x)/(zoom*uiScale()))));n.y=Math.max(20,Math.min(1200,snap(oy+(move.clientY-y)/(zoom*uiScale()))));card.style.left=n.x+'px';card.style.top=n.y+'px';drawEdges();};
     header.onpointerup=()=>{header.onpointermove=null;header.onpointerup=null;changed();};header.onpointercancel=()=>{header.onpointermove=null;changed();};};
    if(n.kind!=='start'){const input=el('button','', 'flow-port input');input.dataset.in=n.id;input.title='Eingang';input.setAttribute('aria-label',label(n)+' Eingang');input.onclick=()=>connect(n.id);input.disabled=running();card.append(input);}
    const output=el('button','',`flow-port output ${selected===n.id?'selected':''}`);output.title='Ausgang – zum Eingang eines anderen Bausteins ziehen oder klicken';output.setAttribute('aria-label',label(n)+' Ausgang');output.disabled=running();output.onpointerdown=e=>{if(e.button!==0)return;e.stopPropagation();selected=n.id;output.classList.add('selected');hint('Jetzt einen Eingang auswählen oder die Verbindung dorthin ziehen.');};output.onclick=()=>{selected=n.id;};card.append(output);
@@ -104,8 +104,8 @@
  },true);
  viewport.addEventListener('pointermove',e=>{
   if(!pan||e.pointerId!==pan.id)return;
-  viewport.scrollLeft=pan.left-(e.clientX-pan.x);
-  viewport.scrollTop=pan.top-(e.clientY-pan.y);
+  viewport.scrollLeft=pan.left-(e.clientX-pan.x)/uiScale();
+  viewport.scrollTop=pan.top-(e.clientY-pan.y)/uiScale();
  });
  function endPan(e){
   if(!pan||e.pointerId!==pan.id)return;
@@ -119,7 +119,7 @@
  viewport.addEventListener('wheel',e=>{
   e.preventDefault();
   const rect=viewport.getBoundingClientRect();
-  const x=e.clientX-rect.left-viewport.clientLeft,y=e.clientY-rect.top-viewport.clientTop;
+  const x=(e.clientX-rect.left)/uiScale()-viewport.clientLeft,y=(e.clientY-rect.top)/uiScale()-viewport.clientTop;
   const worldX=(viewport.scrollLeft+x)/zoom,worldY=(viewport.scrollTop+y)/zoom;
   const delta=e.deltaY*(e.deltaMode===1?16:e.deltaMode===2?viewport.clientHeight:1);
   setZoom(zoom*Math.exp(-Math.max(-150,Math.min(150,delta))*.002));

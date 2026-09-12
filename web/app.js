@@ -1,4 +1,5 @@
 const $ = selector => document.querySelector(selector);
+const uiScale=()=>Number(getComputedStyle(document.documentElement).getPropertyValue('--ui-scale'))||1;
 const cards = new Map();
 let state = {chats: [], events: []}, online = false, busy = false, stopped = false;
 let knownEvents = null, knownForward, audio;
@@ -15,7 +16,7 @@ function beginChatDrag(e,card){
   const reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const ghost=card.cloneNode(true);ghost.classList.add('chat-drag-preview');ghost.setAttribute('aria-hidden','true');ghost.inert=true;
   ghost.removeAttribute('id');ghost.querySelectorAll('[id]').forEach(el=>el.removeAttribute('id'));
-  ghost.style.width=origin.width+'px';
+  ghost.style.width=(origin.width/uiScale())+'px';
 
   chatDrag=card;
   const move=event=>{
@@ -28,8 +29,8 @@ function beginChatDrag(e,card){
     const rect=$('#chats').getBoundingClientRect();
     const last=siblings.at(-1);
     const y=before?before.getBoundingClientRect().top-6:last?last.getBoundingClientRect().bottom+6:rect.top;
-    marker.style.cssText=`left:${rect.left}px;top:${y}px;width:${rect.width}px`;
-    ghost.style.left=(event.clientX-offsetX)+'px';ghost.style.top=(event.clientY-offsetY)+'px';
+    marker.style.cssText=`left:${rect.left/uiScale()}px;top:${y/uiScale()}px;width:${rect.width/uiScale()}px`;
+    ghost.style.left=((event.clientX-offsetX)/uiScale())+'px';ghost.style.top=((event.clientY-offsetY)/uiScale())+'px';
     if(event.clientY<70)window.scrollBy(0,-24);
     else if(event.clientY>window.innerHeight-70)window.scrollBy(0,24);
   };
@@ -51,8 +52,8 @@ function beginChatDrag(e,card){
         $('#chats').insertBefore(card,before);
         const destination=card.getBoundingClientRect();
         if(!reduced){
-          for(const [other,top] of positions){if(other!==card)other.animate([{transform:`translateY(${top-other.getBoundingClientRect().top}px)`},{transform:'translateY(0)'}],{duration:220,easing:'ease-out'});}
-          const landing=ghost.animate([{left:ghost.style.left,top:ghost.style.top,transform:'scale(1.025)'},{left:destination.left+'px',top:destination.top+'px',transform:'scale(1)'}],{duration:220,easing:'cubic-bezier(.2,.8,.2,1)',fill:'forwards'});
+          for(const [other,top] of positions){if(other!==card)other.animate([{transform:`translateY(${(top-other.getBoundingClientRect().top)/uiScale()}px)`},{transform:'translateY(0)'}],{duration:220,easing:'ease-out'});}
+          const landing=ghost.animate([{left:ghost.style.left,top:ghost.style.top,transform:'scale(1.025)'},{left:(destination.left/uiScale())+'px',top:(destination.top/uiScale())+'px',transform:'scale(1)'}],{duration:220,easing:'cubic-bezier(.2,.8,.2,1)',fill:'forwards'});
           await Promise.race([landing.finished.catch(()=>{}),new Promise(resolve=>setTimeout(resolve,350))]);
           landing.cancel();
         }

@@ -41,3 +41,6 @@ input:not([type=checkbox]){background:var(--bg);border-color:var(--border)}butto
 #flow-open{display:inline-flex;align-items:center;justify-content:center}.connection-icon{display:block;flex:none;pointer-events:none}
 
 .toggle{display:inline-flex;align-items:center;justify-content:center}.toggle svg{display:block;pointer-events:none}
+
+/* Uniform compact UI; pointer coordinates are normalized in the drag handlers. */
+:root{--ui-scale:.9;zoom:var(--ui-scale)}
