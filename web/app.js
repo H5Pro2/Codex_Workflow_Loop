@@ -182,7 +182,10 @@ function render() {
     card.querySelector('.badge').textContent=({paused:'Pausiert',searching:'Suche',waiting:'Überwacht',working:'Arbeitet',complete:'Fertig',error:'Hinweis',unknown:'Status unklar'})[chat.state];
     card.querySelector('.message').textContent=chat.message;
     card.querySelector('.meta').textContent=(chat.active?'Überwachung aktiv · ':'Überwachung pausiert · ')+(chat.last?`${chat.count} Abschlüsse · ${time(chat.last)}`:'Noch kein neuer Abschluss');
-    card.querySelector('.toggle').textContent=chat.active?'Pause':'Überwachen';
+    const monitorToggle=card.querySelector('.toggle');
+    monitorToggle.innerHTML=chat.active?'<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>':'Überwachen';
+    monitorToggle.title=chat.active?'Überwachung pausieren':'Überwachung starten';
+    monitorToggle.setAttribute('aria-label',monitorToggle.title);
     card.querySelector('.toggle').className=chat.active?'toggle':'toggle primary';
     card.querySelectorAll('.actions button').forEach(b=>b.disabled=!online);
     card.querySelector('.copy').disabled=!online||busy||!chat.can_copy||chat.state==='working';

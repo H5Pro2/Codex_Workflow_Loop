@@ -39,3 +39,5 @@ input:not([type=checkbox]){background:var(--bg);border-color:var(--border)}butto
 .monitor-title{display:inline-flex;align-items:center;gap:4px}.monitor-title svg{flex:none}
 
 #flow-open{display:inline-flex;align-items:center;justify-content:center}.connection-icon{display:block;flex:none;pointer-events:none}
+
+.toggle{display:inline-flex;align-items:center;justify-content:center}.toggle svg{display:block;pointer-events:none}
