@@ -35,3 +35,5 @@ input:not([type=checkbox]){background:var(--bg);border-color:var(--border)}butto
 .monitor-heading{display:flex;align-items:center;gap:16px;flex-wrap:wrap}#loop-progress{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
 
 #debug-panel>summary{cursor:pointer;font-size:14px;font-weight:600}.debug-tools{display:flex;gap:8px;margin:14px 0}.debug-note,#debug-error{font-size:12px;margin-bottom:12px}#debug-entries{max-height:480px;overflow:auto;font-size:12px}#debug-entries details{border-top:1px solid var(--border);padding:10px 0}#debug-entries summary{cursor:pointer}#debug-entries pre{white-space:pre-wrap;overflow-wrap:anywhere;color:var(--muted)}#debug-entries p{overflow-wrap:anywhere}
+
+.monitor-title{display:inline-flex;align-items:center;gap:4px}.monitor-title svg{flex:none}
