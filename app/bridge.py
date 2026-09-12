@@ -3,6 +3,7 @@ import json
 import os
 from pathlib import Path
 import queue
+import re
 import subprocess
 import threading
 
@@ -45,17 +46,22 @@ class Bridge:
         self.start_lock = threading.Lock()
         self.active = {}
         self.context = None
+        self.call_lock = threading.RLock()
+        self.recovery_pipe = None
+        self.config_path = Path(__file__).resolve().parents[1] / "data" / "app-connection.json"
 
     def ensure(self):
         with self.start_lock:
             if self.process and self.process.poll() is None:
                 return
-            config_path = Path(__file__).resolve().parents[1] / 'data' / 'app-connection.json'
+            config_path = self.config_path
             try:
                 config = json.loads(config_path.read_text(encoding='utf-8'))
             except (OSError, ValueError):
                 raise BridgeError('Die Verbindung zur laufenden Codex-App ist noch nicht eingerichtet.')
             config = resolve_runtime(config)
+            if self.recovery_pipe:
+                config["pipe"] = self.recovery_pipe
             self.context = config['thread']
             environment = os.environ.copy()
             environment['CODEX_APP_TOOLS_PIPE_PATH'] = config['pipe']
@@ -123,10 +129,62 @@ class Bridge:
                     channel.put(response)
         finally:
             with self.lock:
-                for channel in self.pending.values():
+                for channel in (self.pending.values() if process is self.process else []):
                     channel.put({'error':{'message':'Verbindung zur Codex-App unterbrochen; Versandstatus prÃ¼fen.'}})
 
     def call(self, name, arguments, *, source=None):
+        # Serializing transport use prevents reconnect from interrupting a send.
+        with self.call_lock:
+            try:
+                return self._call(name, arguments, source=source)
+            except (OSError, BridgeError):
+                targets = arguments.get('targets', [])
+                if name != 'wait_threads' or len(targets) != 1:
+                    raise  # Never replay mutations or unconfirmed sends.
+                identity = targets[0].get('threadId')
+                if not identity:
+                    raise
+                return self.recover(identity, arguments, source)
+
+    def recover(self, identity, arguments, source):
+        candidates = []
+        env = os.environ.get('CODEX_APP_TOOLS_PIPE_PATH')
+        if env:
+            candidates.append(env)
+        if os.name == 'nt':
+            try:
+                candidates.extend('\\\\.\\pipe\\' + n for n in os.listdir('\\\\.\\pipe\\')
+                                  if re.fullmatch(r'codex-browser-use-[0-9a-f-]{36}', n))
+            except OSError:
+                pass
+        candidates = list(dict.fromkeys(candidates))
+        for candidate in candidates:
+            self.close()
+            self.process = None
+            self.recovery_pipe = candidate
+            try:
+                result = self._call('wait_threads', arguments, source=source)
+                polls = result.get('polls', [])
+                if len(polls) != 1 or polls[0].get('thread', {}).get('id') != identity:
+                    continue
+            except (OSError, BridgeError):
+                continue
+            # Persist only a connection that confirmed the exact requested chat.
+            try:
+                config = resolve_runtime(json.loads(self.config_path.read_text(encoding='utf-8')))
+                config['pipe'] = candidate
+                temp = self.config_path.with_suffix('.tmp')
+                temp.write_text(json.dumps(config, ensure_ascii=False, indent=2), encoding='utf-8')
+                temp.replace(self.config_path)
+            except (OSError, ValueError):
+                pass  # Verified connection remains usable in memory.
+            return result
+        self.close()
+        self.process = None
+        self.recovery_pipe = None
+        raise BridgeError('Keine aktuelle Codex-Verbindung bestätigt den angefragten Chat. Codex öffnen und erneut prüfen; es wurde keine Nachricht erneut gesendet.')
+
+    def _call(self, name, arguments, *, source=None):
         self.ensure()
         result = self.request('tools/call', {'name':name,'arguments':arguments,'_meta':{'threadId':source if source is not None else self.context}})
         texts = [item.get('text','') for item in result.get('content',[]) if item.get('type')=='text']

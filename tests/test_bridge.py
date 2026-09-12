@@ -40,3 +40,28 @@ class DesktopBridgeTests(unittest.TestCase):
             bridge.call('send_message_to_thread',{'threadId':'analyst','prompt':'reply'},source='researcher')
             self.assertEqual(request.call_args.args[1]['_meta'],{'threadId':'researcher'})
         self.assertEqual(bridge.context,'development-chat')
+
+    def test_read_failure_recovers_but_send_failure_never_retries(self):
+        bridge=Bridge()
+        with patch.object(bridge,'_call',side_effect=BridgeError('offline')), patch.object(bridge,'recover',return_value={'polls':[]}) as recover:
+            bridge.call('wait_threads',{'targets':[{'threadId':'target'}]})
+            self.assertEqual(recover.call_count,1)
+            with self.assertRaises(BridgeError):
+                bridge.call('send_message_to_thread',{'threadId':'target','prompt':'text'})
+            self.assertEqual(recover.call_count,1)
+
+    def test_recovery_rejects_wrong_target_and_persists_verified_pipe(self):
+        import tempfile,json
+        from pathlib import Path
+        bridge=Bridge()
+        correct={'polls':[{'thread':{'id':'target'}}]}
+        with tempfile.TemporaryDirectory() as directory:
+            bridge.config_path=Path(directory)/'connection.json'
+            bridge.config_path.write_text(json.dumps({'pipe':'old'}))
+            with patch.dict('os.environ',{'CODEX_APP_TOOLS_PIPE_PATH':'new'}), patch('app.bridge.os.listdir',return_value=[]), patch.object(bridge,'close'), patch('app.bridge.resolve_runtime',side_effect=lambda c:c):
+                with patch.object(bridge,'_call',return_value={'polls':[{'thread':{'id':'wrong'}}]}):
+                    with self.assertRaises(BridgeError):bridge.recover('target',{},None)
+                self.assertEqual(json.loads(bridge.config_path.read_text())['pipe'],'old')
+                with patch.object(bridge,'_call',return_value=correct):
+                    self.assertEqual(bridge.recover('target',{},None),correct)
+                self.assertEqual(json.loads(bridge.config_path.read_text())['pipe'],'new')
