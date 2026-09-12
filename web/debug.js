@@ -24,7 +24,10 @@
   }catch(e){feedback.textContent=e.message;}
   finally{inflight=false;if(panel.open)timer=setTimeout(refresh,1500);}
  }
- panel.addEventListener('toggle',()=>{try{localStorage.setItem('debug-open',String(panel.open));}catch{}refresh();});
+ const toggle=document.getElementById('debug-toggle');
+ function syncToggle(){toggle.setAttribute('aria-expanded',String(panel.open));document.getElementById('debug-arrow').textContent=panel.open?'▾':'▸';}
+ toggle.onclick=()=>{panel.open=!panel.open;syncToggle();};
+ panel.addEventListener('toggle',()=>{syncToggle();try{localStorage.setItem('debug-open',String(panel.open));}catch{}refresh();});
  try{panel.open=localStorage.getItem('debug-open')==='true';}catch{}
  document.getElementById('debug-clear').onclick=async()=>{
   try{const r=await fetch('/api/command',{method:'POST',headers:{'Content-Type':'application/json','X-Workflow-Loop':'1'},body:JSON.stringify({action:'clear_debug'}),signal:AbortSignal.timeout(5000)});if(!r.ok)throw Error('Leeren fehlgeschlagen');generation++;signature=null;container.textContent='Noch keine Debug-Einträge.';feedback.textContent='Debug-Protokoll geleert.';await refresh();}catch(e){feedback.textContent=e.message;}
@@ -32,5 +35,5 @@
  document.getElementById('debug-export').onclick=async()=>{
   try{const data=await read();const url=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='codex-workflow-debug.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}catch(e){feedback.textContent=e.message;}
  };
- refresh();
+ syncToggle();refresh();
 })();
